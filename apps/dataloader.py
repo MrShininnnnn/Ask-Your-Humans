@@ -1,40 +1,11 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import datasets, transforms
 import torchtext.vocab as vocabtorch
-import torch.utils.data as data_utils
 from torch.utils.data.dataset import Dataset
-from torch.utils.data import DataLoader
-from torch.nn.utils.rnn import pack_padded_sequence
 
 import numpy as np
-import matplotlib.pyplot as plt
-plt.switch_backend('agg')
-
-#from data_reader import read_dataset
-from torchsummary import summary
-
-import random
 import os
-import yaml
-import json
-
-import mazebasev2.lib.mazebase.games as games
-from mazebasev2.lib.mazebase.games import featurizers
-
-from mazebasev2.lib.mazebase.items.terrain import CraftingItem, CraftingContainer, ResourceFont, Block, Water, Switch, Door
-from mazebasev2.lib.mazebase.items import agents
-
-from train_models import StateGoalNet, StateGoalInstructionNet, StateGoalInstructionv1Net, StateGoalNetv1, StateGoalNetv2
-
-#import nltk
 import pickle
-
-from build_vocab import build_vocabulary, load_vocabulary
-from test_models import play_game
-
-import sys
+from build_vocab import build_vocabulary
 
 
 def load_pkl(workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name_tag = 'dataset_'):
@@ -249,9 +220,9 @@ class CraftingDataset(Dataset):
 
         try:
             instruction = []
-            instruction.append(vocab('<start>'))
+            instruction.append(self.vocab('<start>'))
             instruction.extend([self.vocab(token) for token in temp_instruction])
-            instruction.append(vocab('<end>'))
+            instruction.append(self.vocab('<end>'))
             target = torch.Tensor(instruction)
         except:
             #print(index)
