@@ -5,7 +5,7 @@ from torch.utils.data.dataset import Dataset
 import numpy as np
 import os
 import pickle
-from build_vocab import build_vocabulary
+from .build_vocab import build_vocabulary
 
 
 def load_pkl(workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name_tag = 'dataset_'):
