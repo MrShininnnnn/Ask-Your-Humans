@@ -37,11 +37,21 @@ def load_pkl(workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name
     return train_states, train_inventories, train_actions, train_goals, train_instructions, all_instructions
 
 
-def generate_vocab(all_instructions, device, embed_dim = 300, workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name_tag = 'dataset_'):
+def generate_vocab(all_instructions,
+                   device,
+                   embed_dim = 300,
+                   workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/',
+                   name_tag = 'dataset_',
+                   glove_model = '840B',
+                   cache=None):
 
     name = workdir + name_tag
 
-    vocab, vocab_weights = build_vocabulary(all_instructions, name, embed_dim)
+    vocab, vocab_weights = build_vocabulary(all_instructions,
+                                            name,
+                                            embed_dim,
+                                            glove_model=glove_model,
+                                            cache=cache)
 
     vocab.add_word('<pad>')
     vocab.add_word('<start>')
@@ -58,7 +68,17 @@ class CraftingDataset(Dataset):
     '''
     The class is copied from the original github.
     '''
-    def __init__(self, embed_dim, train_states, train_inventories, train_actions, train_goals, train_instructions, vocab, transform=None):
+    def __init__(self,
+                 embed_dim,
+                 train_states,
+                 train_inventories,
+                 train_actions,
+                 train_goals,
+                 train_instructions,
+                 vocab,
+                 transform=None,
+                 glove_model='840B',
+                 cache=None):
 
         self.embed_dim = embed_dim
 
@@ -69,11 +89,8 @@ class CraftingDataset(Dataset):
         self.train_inventories = train_inventories
         self.train_actions = train_actions
         self.train_goals = train_goals
-
-        if self.embed_dim == 50:
-            self.glove = vocabtorch.GloVe(name='6B', dim=50)
-        else:
-            self.glove = vocabtorch.GloVe(name='840B', dim=300)
+        self.glove = vocabtorch.GloVe(
+            name=glove_model, dim=embed_dim, cache=cache)
 
         self.train_states_embedding = [self.get_grid_embedding(state) for state in self.train_states]
         print("embedding loaded")
