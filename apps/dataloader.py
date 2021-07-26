@@ -5,14 +5,14 @@ from torch.utils.data.dataset import Dataset
 import numpy as np
 import os
 import pickle
-from .build_vocab import build_vocabulary
+from build_vocab import build_vocabulary
 
 
 def load_pkl(workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name_tag = 'dataset_'):
 
     if not os.path.exists(workdir):
         print('Please change to the correct directory.')
-        return 
+        return
 
     name = workdir + name_tag
 
@@ -37,18 +37,28 @@ def load_pkl(workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name
     return train_states, train_inventories, train_actions, train_goals, train_instructions, all_instructions
 
 
-def generate_vocab(all_instructions, device, embed_dim = 300, workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/', name_tag = 'dataset_'):
-    
+def generate_vocab(all_instructions,
+                   device,
+                   embed_dim = 300,
+                   workdir = '/mnt/e/DesignData/DL/Data_and_Code/dataset_split/',
+                   name_tag = 'dataset_',
+                   glove_model = '840B',
+                   cache=None):
+
     name = workdir + name_tag
 
-    vocab, vocab_weights = build_vocabulary(all_instructions, name, embed_dim)
+    vocab, vocab_weights = build_vocabulary(all_instructions,
+                                            name,
+                                            embed_dim,
+                                            glove_model=glove_model,
+                                            cache=cache)
 
     vocab.add_word('<pad>')
     vocab.add_word('<start>')
     vocab.add_word('<end>')
     vocab.add_word('<unk>')
 
-    #comment back when we define 
+    #comment back when we define
     vocab_weights = torch.Tensor(vocab_weights).to(device)
 
     return vocab, vocab_weights
@@ -58,7 +68,17 @@ class CraftingDataset(Dataset):
     '''
     The class is copied from the original github.
     '''
-    def __init__(self, embed_dim, train_states, train_inventories, train_actions, train_goals, train_instructions, vocab, transform=None):
+    def __init__(self,
+                 embed_dim,
+                 train_states,
+                 train_inventories,
+                 train_actions,
+                 train_goals,
+                 train_instructions,
+                 vocab,
+                 transform=None,
+                 glove_model='840B',
+                 cache=None):
 
         self.embed_dim = embed_dim
 
@@ -69,11 +89,8 @@ class CraftingDataset(Dataset):
         self.train_inventories = train_inventories
         self.train_actions = train_actions
         self.train_goals = train_goals
-
-        if self.embed_dim == 50:
-            self.glove = vocabtorch.GloVe(name='6B', dim=50)
-        else:
-            self.glove = vocabtorch.GloVe(name='840B', dim=300)
+        self.glove = vocabtorch.GloVe(
+            name=glove_model, dim=embed_dim, cache=cache)
 
         self.train_states_embedding = [self.get_grid_embedding(state) for state in self.train_states]
         print("embedding loaded")
@@ -97,15 +114,15 @@ class CraftingDataset(Dataset):
         for p in phrase:
             try:
                 phrase_vector += self.glove.vectors[self.glove.stoi[p.lower()]]
-            
+
             # MAKE THIS ALL zeros?
             except:
                 phrase_vector += self.glove.vectors[self.glove.stoi['unknown']]  #replace this later??
 
         return phrase_vector
 
-    # input: batched mazebase grid 
-    # output: 
+    # input: batched mazebase grid
+    # output:
     def get_grid_embedding(self, batch_grid):
 
         goal_embedding_array = np.zeros((5, 5, self.embed_dim), dtype=np.float32)
@@ -116,14 +133,14 @@ class CraftingDataset(Dataset):
                 for index, item in enumerate(batch_grid[x][y]):
                     if item == "ResourceFont" or item == "CraftingContainer" or item == "CraftingItem":
                         goal_embedding_array[x][y] = self.get_summed_embedding(batch_grid[x][y][index+1])
-                
+
         return goal_embedding_array
 
     def get_goal_embedding(self, goal):
 
             #currently all crafts are 2 word phrases
             # goal in the format of "Make Diamond Boots (Diamond Boots=1)" --> just extract diamond boots part
-        
+
             goal_embedding = np.zeros((self.embed_dim), dtype=np.float32)
 
             goal = goal.split(' ')
@@ -139,7 +156,7 @@ class CraftingDataset(Dataset):
 
     def get_inventory_embedding(self, inventory):
 
-        
+
         #summed inventory
         inventory_embedding = np.zeros((self.embed_dim), dtype=np.float32)
 
@@ -155,7 +172,7 @@ class CraftingDataset(Dataset):
                     inventory_embedding = inventory_embedding + self.get_summed_embedding(item)
 
         return inventory_embedding
-        
+
     def one_hot_actions(self, action):
 
         if action == 'up':
@@ -257,6 +274,6 @@ def collate_fn(data):
     for i, cap in enumerate(captions):
 
         end = lengths[i]
-        targets[i, :end] = cap[:end]        
+        targets[i, :end] = cap[:end]
 
     return states_onehot, states_embedding, inventory_embedding, action, goal, targets, lengths

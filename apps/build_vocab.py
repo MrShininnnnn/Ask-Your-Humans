@@ -31,14 +31,15 @@ class Vocabulary(object):
     def __len__(self):
         return len(self.word2idx)
 
-def build_vocabulary(train_instructions, save_name, embed_dim):
+def build_vocabulary(train_instructions,
+                     save_name,
+                     embed_dim,
+                     glove_model='840B',
+                     cache=None):
 
     freqs = {}
 
-    if embed_dim == 300:
-        glove = vocabtorch.GloVe(name='840B', dim=300) #maybe switch this out!
-    elif embed_dim == 50:
-        glove = vocabtorch.GloVe(name='6B', dim=50)
+    glove = vocabtorch.GloVe(name=glove_model, dim=embed_dim, cache=cache) #maybe switch this out!
 
     instruction_size = []
     instructs = {}
@@ -100,7 +101,7 @@ def build_vocabulary(train_instructions, save_name, embed_dim):
     print("Total vocabulary size: {}".format(len(vocab)))
 
     return vocab, vocab_weights
-    
+
 def load_vocabulary(load_name):
 
     with open(load_name+'_vocab', 'rb') as f:
@@ -121,12 +122,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--caption_path', type=str, 
-                        default='data/annotations/captions_train2014.json', 
+    parser.add_argument('--caption_path', type=str,
+                        default='data/annotations/captions_train2014.json',
                         help='path for train annotation file')
-    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl', 
+    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
                         help='path for saving vocabulary wrapper')
-    parser.add_argument('--threshold', type=int, default=4, 
+    parser.add_argument('--threshold', type=int, default=4,
                         help='minimum word count threshold')
     args = parser.parse_args()
     main(args)
