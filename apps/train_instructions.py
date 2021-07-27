@@ -42,14 +42,16 @@ def train_model(device,
       pin_memory=True,
       collate_fn=collate_fn)
 
-  instructions_generator = InstructionModel(device, embeded_dim)
+  print('Data load success.')
 
-  instructions_generator.to(device)
-  instructions_generator.train()
+  ir_generator = InstructionModel(device, embeded_dim)
+
+  ir_generator.to(device)
+  ir_generator.train()
 
   criterion = nn.CrossEntropyLoss()
   parameters = filter(lambda p: p.requires_grad,
-                      instructions_generator.parameters())
+                      ir_generator.parameters())
   optimizer = torch.optim.Adam(parameters, lr=learning_rate)
 
   for epoch in range(epochs):
@@ -67,8 +69,16 @@ def train_model(device,
 
       instructions = instructions.to(device)
 
-      predictions = instructions_generator(
+      predictions = ir_generator(
           grid_embedding, grid_onehot, inventory_embedding, goal_embedding)
+
+      #prediction = torch.argmax(predictions, dim = 1)
+      action = action.to(device, dtype=torch.int64)
+      action = action.squeeze(1)
+      #print(predictions)
+      #print(action)
+      #print(predictions.shape)
+      #print(action.shape)
 
       try:
 
@@ -93,13 +103,15 @@ def train_model(device,
         running_loss = 0.0
         running_loss_count = 0
 
-  torch.save(instructions_generator.state_dict(), model_save_dir)
+  torch.save(ir_generator.state_dict(), model_save_dir)
   print('Trained model saved at ', model_save_dir)
-  return instructions_generator
+  return ir_generator
 
 # TODO(xingnan): Load these parameters from config file
-DATA_DIR = '/usr/local/google/home/billzhou/Documents/dataset_split/'
-VECTORS_CACHE = '/usr/local/google/home/billzhou/Documents/glove'
+#DATA_DIR = '/usr/local/google/home/billzhou/Documents/dataset_split/'
+DATA_DIR = '/wynton/home/degradolab/lonelu/GitHub_Design/DL/Data_and_Code/dataset_split/'
+#VECTORS_CACHE = '/usr/local/google/home/billzhou/Documents/glove'
+VECTORS_CACHE = '/wynton/home/degradolab/lonelu/software/glove/'
 
 if __name__ == '__main__':
   if torch.cuda.is_available():
@@ -113,4 +125,4 @@ if __name__ == '__main__':
       device,
       DATA_DIR,
       vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/tmp_bc.pt')
+      model_save_dir='trained_model/tmp_ir.pt')
