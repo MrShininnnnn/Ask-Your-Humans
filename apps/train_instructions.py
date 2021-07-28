@@ -109,9 +109,11 @@ def train_model(device,
 
 # TODO(xingnan): Load these parameters from config file
 #DATA_DIR = '/usr/local/google/home/billzhou/Documents/dataset_split/'
-DATA_DIR = '/wynton/home/degradolab/lonelu/GitHub_Design/DL/Data_and_Code/dataset_split/'
+#DATA_DIR = '/wynton/home/degradolab/lonelu/GitHub_Design/DL/Data_and_Code/dataset_split/'
+DATA_DIR = '../../CS7643_proj/dataset_split/'
 #VECTORS_CACHE = '/usr/local/google/home/billzhou/Documents/glove'
-VECTORS_CACHE = '/wynton/home/degradolab/lonelu/software/glove/'
+#VECTORS_CACHE = '/wynton/home/degradolab/lonelu/software/glove/'
+VECTORS_CACHE = '../../CS7643_proj/glove/'
 
 if __name__ == '__main__':
   if torch.cuda.is_available():
