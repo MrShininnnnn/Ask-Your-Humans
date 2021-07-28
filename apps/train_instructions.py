@@ -3,6 +3,7 @@ from dataloader import CraftingDataset
 from dataloader import generate_vocab
 from dataloader import load_pkl
 from instruction_model import InstructionModel
+from instructions_discriminate_model import InstructionsDiscriminateModel
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
@@ -44,7 +45,8 @@ def train_model(device,
 
   print('Data load success.')
 
-  ir_generator = InstructionModel(device, embeded_dim)
+  #ir_generator = InstructionModel(device, embeded_dim)
+  ir_generator = InstructionsDiscriminateModel(device, len(vocab), embeded_dim, vocab_weights)
 
   ir_generator.to(device)
   ir_generator.train()
@@ -69,8 +71,10 @@ def train_model(device,
 
       instructions = instructions.to(device)
 
+      #predictions = ir_generator(
+      #    grid_embedding, grid_onehot, inventory_embedding, goal_embedding)
       predictions = ir_generator(
-          grid_embedding, grid_onehot, inventory_embedding, goal_embedding)
+           grid_embedding, grid_onehot, inventory_embedding, goal_embedding, instructions, lengths)
 
       #prediction = torch.argmax(predictions, dim = 1)
       action = action.to(device, dtype=torch.int64)
@@ -127,4 +131,4 @@ if __name__ == '__main__':
       device,
       DATA_DIR,
       vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/tmp_ir.pt')
+      model_save_dir='trained_model/tmp_irdl.pt')
