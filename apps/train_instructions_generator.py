@@ -145,7 +145,7 @@ def main():
     print('using cpu')
     device = torch.device('cpu')
 
-  args = load_args()
+  args = load_args('Instructions Generator')
 
   train_states, train_inventories, train_actions, train_goals, train_instructions, all_instructions = load_pkl(
       workdir=args.data_dir)

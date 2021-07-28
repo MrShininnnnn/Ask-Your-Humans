@@ -1,3 +1,4 @@
+from args_loader import load_args
 from dataloader import collate_fn
 from dataloader import CraftingDataset
 from dataloader import generate_vocab
@@ -11,33 +12,27 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
 
-def train_model(device,
-                data_dir,
-                model_save_dir='trained_model/instructions_generator.pt',
-                epochs=15,
-                learning_rate=0.001,
-                batch_size=64,
-                vectors_cache=None,
-                embeded_dim=300,
-                log_size=500):
+def train_model(device):
+  args = load_args('Instructions')
+
   train_states, train_inventories, train_actions, train_goals, train_instructions, all_instructions = load_pkl(
-      workdir=data_dir)
+      workdir=args.data_dir)
 
   vocab, vocab_weights = generate_vocab(
-      all_instructions, device, workdir=data_dir, cache=vectors_cache)
+      all_instructions, device, workdir=args.data_dir, cache=args.vectors_cache)
 
   dataset = CraftingDataset(
-      embeded_dim,
+      args.embeded_dim,
       train_states,
       train_inventories,
       train_actions,
       train_goals,
       train_instructions,
       vocab,
-      cache=vectors_cache)
+      cache=args.vectors_cache)
   data_loader = DataLoader(
       dataset,
-      batch_size=batch_size,
+      batch_size=args.batch_size,
       shuffle=True,
       num_workers=0,
       pin_memory=True,
@@ -45,8 +40,9 @@ def train_model(device,
 
   print('Data load success.')
 
-  #ir_generator = InstructionModel(device, embeded_dim)
-  ir_generator = InstructionsDiscriminateModel(device, len(vocab), embeded_dim, vocab_weights)
+  #ir_generator = InstructionModel(device, args.embeded_dim)
+  ir_generator = InstructionsDiscriminateModel(device, len(vocab),
+                                               args.embeded_dim, vocab_weights)
 
   ir_generator.to(device)
   ir_generator.train()
@@ -54,9 +50,9 @@ def train_model(device,
   criterion = nn.CrossEntropyLoss()
   parameters = filter(lambda p: p.requires_grad,
                       ir_generator.parameters())
-  optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+  optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
 
-  for epoch in range(epochs):
+  for epoch in range(args.epochs):
     all_losses = []
     running_loss = 0.0
     running_loss_count = 0
@@ -98,7 +94,7 @@ def train_model(device,
       except RuntimeError as error:
         print(error)
 
-      if i % log_size == log_size - 1:
+      if i % args.log_size == args.log_size - 1:
         all_losses.append(running_loss / running_loss_count)
 
         print('[%d, %5d] lang loss: %.3f' %
@@ -107,17 +103,10 @@ def train_model(device,
         running_loss = 0.0
         running_loss_count = 0
 
-  torch.save(ir_generator.state_dict(), model_save_dir)
-  print('Trained model saved at ', model_save_dir)
+  torch.save(ir_generator.state_dict(), args.model_save_dir)
+  print('Trained model saved at ', args.model_save_dir)
   return ir_generator
 
-# TODO(xingnan): Load these parameters from config file
-#DATA_DIR = '/usr/local/google/home/billzhou/Documents/dataset_split/'
-#DATA_DIR = '/wynton/home/degradolab/lonelu/GitHub_Design/DL/Data_and_Code/dataset_split/'
-DATA_DIR = '../../CS7643_proj/dataset_split/'
-#VECTORS_CACHE = '/usr/local/google/home/billzhou/Documents/glove'
-#VECTORS_CACHE = '/wynton/home/degradolab/lonelu/software/glove/'
-VECTORS_CACHE = '../../CS7643_proj/glove/'
 
 if __name__ == '__main__':
   if torch.cuda.is_available():
@@ -127,8 +116,4 @@ if __name__ == '__main__':
     print('using cpu')
     device = torch.device('cpu')
 
-  train_model(
-      device,
-      DATA_DIR,
-      vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/instructions_billzhou_0728.pt')
+  train_model(device)

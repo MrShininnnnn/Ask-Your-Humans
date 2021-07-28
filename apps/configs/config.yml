@@ -1,8 +1,10 @@
+# Common environment
 Environment:
-  model_save_dir: 'trained_model/tmp_instructions_generator.pt'
-  data_dir: '/usr/local/google/home/billzhou/Documents/dataset_split/'
-  vectors_cache: '/usr/local/google/home/billzhou/Documents/glove'
+  model_save_dir: 'trained_model/tmp_irdl.pt'
+  data_dir: '../../CS7643_proj/dataset_split/'
+  vectors_cache: '../../CS7643_proj/glove/'
 
+# Choose one of the below model to train in args_loader
 Instructions Generator:
   epochs: 15
   log_size: 500
