@@ -2,6 +2,7 @@ from dataloader import collate_fn
 from dataloader import CraftingDataset
 from dataloader import generate_vocab
 from dataloader import load_pkl
+from instructions_generator_metrics import InstructionsGeneratorMetrics
 from instructions_generator_model import InstructionsGeneratorModel
 import numpy as np
 import torch
@@ -11,6 +12,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 from torch.utils.tensorboard import SummaryWriter
+from torchtext.data.metrics import bleu_score
 
 
 def calculate_loss(criterion, predictions, targets, decode_lengths, alphas):
@@ -23,6 +25,17 @@ def calculate_loss(criterion, predictions, targets, decode_lengths, alphas):
   return loss
 
 
+def calculate_bleu_score(preds, targets, vocab):
+  preds_words = np.array([
+      list(map(lambda x: vocab.idx2word[x], preds[i]))
+      for i in range(preds.shape[0])
+  ])
+  targets_words = np.array(
+      [[list(map(lambda x: vocab.idx2word[x], targets[i]))]
+       for i in range(targets.shape[0])])
+  return bleu_score(preds_words, targets_words)
+
+
 def train(device,
           epoch,
           train_data_loader,
@@ -30,11 +43,10 @@ def train(device,
           optimizer,
           criterion,
           parameters,
+          vocab,
           log_size=500,
           summary_writer=None):
-  all_losses = []
-  running_loss = 0.0
-  running_loss_count = 0
+  metrics = InstructionsGeneratorMetrics(vocab, criterion)
 
   for i, data in enumerate(train_data_loader, 0):
     grid_onehot, grid_embedding, inventory_embedding, _, goal_embedding, instructions, lengths = data
@@ -53,34 +65,28 @@ def train(device,
 
     targets = instructions[:, 1:]
     try:
-      lang_loss = calculate_loss(criterion, predictions, targets,
-                                 decode_lengths, alphas)
+      lang_loss = metrics.add(predictions, targets, decode_lengths, alphas)
       clip_grad_norm_(parameters, max_norm=3)
 
       optimizer.zero_grad()
       lang_loss.backward()
       optimizer.step()
 
-      running_loss += lang_loss.item()
-      running_loss_count += 1
-
     except RuntimeError as error:
       print(error)
 
     if i % log_size == log_size - 1:
-      all_losses.append(running_loss / running_loss_count)
+      metrics.flush(epoch, i)
 
-      print('[%d, %5d] train loss: %.3f' %
-            (epoch + 1, i + 1, running_loss / running_loss_count))
-
-      running_loss = 0.0
-      running_loss_count = 0
-
-  print('Epoch %d average train loss: %.3f' %
-        (epoch + 1, np.array(all_losses).mean()))
   if summary_writer is not None:
     summary_writer.add_scalar('Loss/train',
-                              np.array(all_losses).mean(), epoch + 1)
+                              metrics.get_mean(metrics.all_losses), epoch + 1)
+    summary_writer.add_scalar('Bleu/train',
+                              metrics.get_mean(metrics.all_bleu_scores),
+                              epoch + 1)
+    summary_writer.add_scalar('TokenAcc/train',
+                              metrics.get_mean(metrics.all_token_accuracy),
+                              epoch + 1)
 
 
 def validate(device,
@@ -88,11 +94,10 @@ def validate(device,
              val_loader,
              model,
              criterion,
+             vocab,
              log_size=500,
              summary_writer=None):
-  all_losses = []
-  running_loss = 0.0
-  running_loss_count = 0
+  metrics = InstructionsGeneratorMetrics(vocab, criterion)
 
   for idx, data in enumerate(val_loader, 0):
     grid_onehot, grid_embedding, inventory_embedding, _, goal_embedding, instructions, lengths = data
@@ -112,28 +117,23 @@ def validate(device,
                                                      instructions, lengths)
       targets = instructions[:, 1:]
       try:
-        lang_loss = calculate_loss(criterion, predictions, targets,
-                                   decode_lengths, alphas)
-        running_loss += lang_loss.item()
-        running_loss_count += 1
+        metrics.add(predictions, targets, decode_lengths, alphas)
 
       except RuntimeError as error:
         print(error)
 
     if idx % log_size == log_size - 1:
-      all_losses.append(running_loss / running_loss_count)
+      metrics.flush(epoch, idx, train=False)
 
-      print('[%d, %5d] valid loss: %.3f' %
-            (epoch + 1, idx + 1, running_loss / running_loss_count))
-
-      running_loss = 0.0
-      running_loss_count = 0
-
-  print('Epoch %d average valid loss: %.3f' %
-        (epoch + 1, np.array(all_losses).mean()))
   if summary_writer is not None:
     summary_writer.add_scalar('Loss/valid',
-                              np.array(all_losses).mean(), epoch + 1)
+                              metrics.get_mean(metrics.all_losses), epoch + 1)
+    summary_writer.add_scalar('Bleu/valid',
+                              metrics.get_mean(metrics.all_bleu_scores),
+                              epoch + 1)
+    summary_writer.add_scalar('TokenAcc/valid',
+                              metrics.get_mean(metrics.all_token_accuracy),
+                              epoch + 1)
 
 
 def main(device,
@@ -210,6 +210,7 @@ def main(device,
         optimizer,
         criterion,
         parameters,
+        vocab,
         log_size=log_size,
         summary_writer=writer)
     validate(
@@ -218,6 +219,7 @@ def main(device,
         validation_data_loader,
         instructions_generator,
         criterion,
+        vocab,
         log_size=log_size,
         summary_writer=writer)
 
@@ -246,4 +248,4 @@ if __name__ == '__main__':
       device,
       DATA_DIR,
       vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/instructions_generator_0727.pt')
+      model_save_dir='trained_model/instructions_generator_072801.pt')
