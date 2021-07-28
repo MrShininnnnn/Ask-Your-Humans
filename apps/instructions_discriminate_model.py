@@ -53,7 +53,7 @@ class InstructionsDiscriminateModel(nn.Module):
     #state_encod = self.fc(self.dropout(state_encod))
 
     ###-------------------------Method1 
-    '''
+
     #print(state_encod.shape)
     #print(state_encod.unsqueeze(1).shape)
     embeddings = self.embed(instructions)
@@ -64,12 +64,12 @@ class InstructionsDiscriminateModel(nn.Module):
     hiddens, hdn = self.encoding(packed)
     out = F.relu(self.fc(hdn[0]))
     #print(out.shape)
-    '''
+
     ###-------------------------
 
     ###-------------------------Method2 
-    hidden = self.lstm_encoder(instructions, [500])
-    out = F.relu(self.fc(hidden))
+    #hidden = self.lstm_encoder(instructions, [500])
+    #out = F.relu(self.fc(hidden))
     ###-------------------------
 
     out = self.fc2(out)
@@ -81,7 +81,7 @@ class LSTMInstructionEncoder(nn.Module):
     '''
     Based on the paper, they applied similar method used here.
     https://github.com/facebookresearch/minirts/blob/master/scripts/behavior_clone/instruction_encoder.py
-    TO DO: modify this method.
+    TO DO: The current method is not working. Modification is needed.
     '''
     def __init__(self, dict_size, emb_size, emb_dropout, out_dim):
         super().__init__()
@@ -109,6 +109,7 @@ class LSTMInstructionEncoder(nn.Module):
 class StateEncoderB(nn.Module):
     '''
     Based on Figure 12 and original code in train_bc's model.
+    TO DO: this method is similar to StateEncoderA except dim. Do we need to make them same?
     '''
     def __init__(self, embed_dim, encoder_dim, grid_onehot_size):
         super(StateEncoderB, self).__init__()
