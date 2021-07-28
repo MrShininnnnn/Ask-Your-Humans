@@ -131,4 +131,4 @@ if __name__ == '__main__':
       device,
       DATA_DIR,
       vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/tmp_irdl.pt')
+      model_save_dir='trained_model/instructions_billzhou_0728.pt')

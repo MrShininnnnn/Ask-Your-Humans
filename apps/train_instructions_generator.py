@@ -1,3 +1,4 @@
+from args_loader import load_args
 from dataloader import collate_fn
 from dataloader import CraftingDataset
 from dataloader import generate_vocab
@@ -136,30 +137,31 @@ def validate(device,
                               epoch + 1)
 
 
-def main(device,
-         data_dir,
-         model_save_dir='trained_model/instructions_generator.pt',
-         epochs=15,
-         learning_rate=0.001,
-         batch_size=64,
-         vectors_cache=None,
-         embeded_dim=300,
-         log_size=500):
+def main():
+  if torch.cuda.is_available():
+    print('using cuda')
+    device = torch.device('cuda')
+  else:
+    print('using cpu')
+    device = torch.device('cpu')
+
+  args = load_args()
+
   train_states, train_inventories, train_actions, train_goals, train_instructions, all_instructions = load_pkl(
-      workdir=data_dir)
+      workdir=args.data_dir)
 
   vocab, vocab_weights = generate_vocab(
-      all_instructions, device, workdir=data_dir, cache=vectors_cache)
+      all_instructions, device, workdir=args.data_dir, cache=args.vectors_cache)
 
   dataset = CraftingDataset(
-      embeded_dim,
+      args.embeded_dim,
       train_states,
       train_inventories,
       train_actions,
       train_goals,
       train_instructions,
       vocab,
-      cache=vectors_cache)
+      cache=args.vectors_cache)
 
   validation_split = 0.2
   dataset_size = len(dataset)
@@ -175,21 +177,21 @@ def main(device,
 
   train_data_loader = DataLoader(
       dataset,
-      batch_size=batch_size,
+      batch_size=args.batch_size,
       num_workers=0,
       pin_memory=True,
       sampler=train_sampler,
       collate_fn=collate_fn)
   validation_data_loader = DataLoader(
       dataset,
-      batch_size=batch_size,
+      batch_size=args.batch_size,
       num_workers=0,
       pin_memory=True,
       sampler=valid_sampler,
       collate_fn=collate_fn)
 
   instructions_generator = InstructionsGeneratorModel(device, len(vocab),
-                                                      embeded_dim,
+                                                      args.embeded_dim,
                                                       vocab_weights)
   instructions_generator.to(device)
   instructions_generator.train()
@@ -197,11 +199,11 @@ def main(device,
   criterion = nn.CrossEntropyLoss()
   parameters = filter(lambda p: p.requires_grad,
                       instructions_generator.parameters())
-  optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+  optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
 
-  writer = SummaryWriter()
+  writer = SummaryWriter() if args.summary_writer else None
 
-  for epoch in range(epochs):
+  for epoch in range(args.epochs):
     train(
         device,
         epoch,
@@ -211,7 +213,7 @@ def main(device,
         criterion,
         parameters,
         vocab,
-        log_size=log_size,
+        log_size=args.log_size,
         summary_writer=writer)
     validate(
         device,
@@ -220,32 +222,18 @@ def main(device,
         instructions_generator,
         criterion,
         vocab,
-        log_size=log_size,
+        log_size=args.log_size,
         summary_writer=writer)
 
-  torch.save(instructions_generator.state_dict(), model_save_dir)
-  print('Trained model saved at ', model_save_dir)
+  torch.save(instructions_generator.state_dict(), args.model_save_dir)
+  print('Trained model saved at ', args.model_save_dir)
 
-  writer.flush()
-  writer.close()
+  if args.summary_writer:
+    writer.flush()
+    writer.close()
 
   return instructions_generator
 
 
-# TODO(xingnan): Load these parameters from config file
-DATA_DIR = '/usr/local/google/home/billzhou/Documents/dataset_split/'
-VECTORS_CACHE = '/usr/local/google/home/billzhou/Documents/glove'
-
 if __name__ == '__main__':
-  if torch.cuda.is_available():
-    print('using cuda')
-    device = torch.device('cuda')
-  else:
-    print('using cpu')
-    device = torch.device('cpu')
-
-  main(
-      device,
-      DATA_DIR,
-      vectors_cache=VECTORS_CACHE,
-      model_save_dir='trained_model/instructions_generator_072801.pt')
+  main()
