@@ -1,0 +1,20 @@
+Environment:
+  model_save_dir: 'trained_model/tmp_instructions_generator.pt'
+  pretrained_instructions_generator: 'trained_model/instructions_generator_072701.pt'
+  data_dir: '/usr/local/google/home/billzhou/Documents/dataset_split/'
+  vectors_cache: '/usr/local/google/home/billzhou/Documents/glove'
+
+Instructions Generator:
+  epochs: 15
+  log_size: 500
+  embeded_dim: 300
+  learning_rate: 0.001
+  batch_size: 64
+  summary_writer: False
+
+Instructions:
+  epochs: 15
+  log_size: 500
+  learning_rate: 0.001
+  batch_size: 64
+  embeded_dim: 300

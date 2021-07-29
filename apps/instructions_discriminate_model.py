@@ -28,7 +28,7 @@ class InstructionsDiscriminateModel(nn.Module):
     self.encoder = StateEncoderB(embedding_dim, encoder_dim, grid_onehot_size)
     self.vocab_size = vocab_size
     self.embedding_dim = embedding_dim
-    
+
     #<<<<<<<<<<<<<<<<<<<<<<Method1: Based on original function
     self.embed = nn.Embedding(vocab_size, embedding_dim)
     self.encoding = nn.LSTM(embedding_dim, 512, num_layers=1)
@@ -41,7 +41,7 @@ class InstructionsDiscriminateModel(nn.Module):
 
     # self.fc = nn.Linear(encoder_dim, 48)  # Why 48?
     # self.fc2 = nn.Linear(48, 9)
-    self.fc = nn.Linear(512, 48) 
+    self.fc = nn.Linear(512, 48)
     self.fc2 = nn.Linear(48, 9)
 
 
@@ -52,7 +52,7 @@ class InstructionsDiscriminateModel(nn.Module):
                                goal_embedding)
     #state_encod = self.fc(self.dropout(state_encod))
 
-    ###-------------------------Method1 
+    ###-------------------------Method1
 
     #print(state_encod.shape)
     #print(state_encod.unsqueeze(1).shape)
@@ -60,14 +60,14 @@ class InstructionsDiscriminateModel(nn.Module):
     #print(embeddings.shape)
     embeddings = torch.cat((state_encod.unsqueeze(1), embeddings), 1)
     #print(embeddings.shape)
-    packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
+    packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
     hiddens, hdn = self.encoding(packed)
     out = F.relu(self.fc(hdn[0]))
     #print(out.shape)
 
     ###-------------------------
 
-    ###-------------------------Method2 
+    ###-------------------------Method2
     #hidden = self.lstm_encoder(instructions, [500])
     #out = F.relu(self.fc(hidden))
     ###-------------------------
@@ -138,8 +138,8 @@ class StateEncoderB(nn.Module):
 
         emb = emb.view(-1, 25,150)
         onehot = onehot.view(-1, 25,20)
-          
-        emb_onehot = torch.cat((emb, onehot), dim = 2) # Why dim = 2 
+
+        emb_onehot = torch.cat((emb, onehot), dim = 2) # Why dim = 2
         emb_onehot =F.relu(self.fc_emb_hot(emb_onehot))
         emb_onehot = emb_onehot.view(-1, 25*90)
 
@@ -147,7 +147,7 @@ class StateEncoderB(nn.Module):
         goal_emb_onehot = self.fc_goal_emb_hot(goal_emb_onehot)
 
         inv_goal_emb_onehot = torch.cat((goal_emb_onehot, inv), dim = 1)
-        
+
         state_encod = F.relu(self.fc_all(inv_goal_emb_onehot))
 
         return state_encod   

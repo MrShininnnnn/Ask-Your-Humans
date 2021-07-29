@@ -23,8 +23,7 @@ class InstructionsGeneratorModel(nn.Module):
                decoder_dim=32,
                max_seq_length=20,
                grid_onehot_size=7,
-               dropout=0.5,
-               training=True):
+               dropout=0.5):
     super(InstructionsGeneratorModel, self).__init__()
 
     self.device = device
@@ -41,10 +40,11 @@ class InstructionsGeneratorModel(nn.Module):
     self.fc_init_hidden = nn.Linear(encoder_dim, decoder_dim)
     self.fc_init_cell = nn.Linear(encoder_dim, decoder_dim)
 
+    # TODO(xingnanzhou): Change to embedding, need to train and save the model again
     self.target_instructions_embedding = nn.Embedding(vocab_size, embedding_dim)
     self.target_instructions_embedding.load_state_dict(
         {'weight': embed_weights})
-    if training:
+    if self.training:
       self.target_instructions_embedding.weight.requires_grad = False
 
     self.fc_beta = nn.Linear(decoder_dim, encoder_dim)
@@ -107,3 +107,57 @@ class InstructionsGeneratorModel(nn.Module):
       alphas[:batch_size_t, t, :] = alpha
 
     return predictions, decode_lengths, alphas, hiddens
+
+  def predict(self, grid_embedding, grid_onehot, inventory_embedding,
+              goal_embedding, vocab):
+    encoder_out = self.encoder(grid_embedding, grid_onehot, inventory_embedding,
+                               goal_embedding)
+    batch_size = encoder_out.size(0)
+
+    k_prev_words = torch.LongTensor([[vocab.word2idx['<start>']]] *
+                                    batch_size).to(self.device)
+
+    complete_seqs = [[vocab.word2idx['<start>']] for i in range(batch_size)]
+    incomplete_inds = [i for i in range(batch_size)]  # TODO: use np.linespace
+
+    step = 1
+    hidden_state, cell_state = self.init_hidden_state(encoder_out)
+    hiddens = hidden_state.clone()
+
+    while True:
+      embeddings = self.target_instructions_embedding(k_prev_words).squeeze(1)
+      attention_weighted_encoding, _ = self.attention(encoder_out, hidden_state)
+      gate = self.sigmoid(self.fc_beta(hidden_state))
+      attention_weighted_encoding = gate * attention_weighted_encoding
+
+      decode_input = torch.cat([embeddings, attention_weighted_encoding], dim=1)
+      hidden_state, cell_state = self.decode_step(decode_input,
+                                                  (hidden_state, cell_state))
+      hiddens[incomplete_inds] = hidden_state.clone()
+      preds = self.fc(self.dropout(hidden_state))
+      preds = F.log_softmax(preds, dim=1)
+
+      _, indices = preds.max(dim=1)
+
+      unfinished_indices = []
+      for i in range(indices.size(0) - 1, -1, -1):
+        complete_seqs[incomplete_inds[i]].append(indices.data.tolist()[i])
+        if indices[i] == vocab.word2idx['<end>']:
+          del incomplete_inds[i]
+        else:
+          unfinished_indices.append(i)
+
+      # All sequences reach <end>
+      if len(incomplete_inds) == 0:
+        break
+
+      hidden_state = hidden_state[unfinished_indices]
+      cell_state = cell_state[unfinished_indices]
+      encoder_out = encoder_out[unfinished_indices]
+      k_prev_words = indices[unfinished_indices].unsqueeze(1)
+
+      if step > 20:
+        break
+
+      step += 1
+    return complete_seqs, hiddens

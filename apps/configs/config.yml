@@ -1,0 +1,21 @@
+# Common environment
+Environment:
+  model_save_dir: 'trained_model/tmp_irdl.pt'
+  data_dir: '../../CS7643_proj/dataset_split/'
+  vectors_cache: '../../CS7643_proj/glove/'
+
+# Choose one of the below model to train in args_loader
+Instructions Generator:
+  epochs: 15
+  log_size: 500
+  embeded_dim: 300
+  learning_rate: 0.001
+  batch_size: 64
+  summary_writer: False
+
+Instructions:
+  epochs: 15
+  log_size: 500
+  learning_rate: 0.001
+  batch_size: 64
+  embeded_dim: 300
