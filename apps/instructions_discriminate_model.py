@@ -25,7 +25,8 @@ class InstructionsDiscriminateModel(nn.Module):
 
     self.device = device
 
-    self.encoder = StateEncoderB(embedding_dim, encoder_dim, grid_onehot_size)
+    self.encoder = StateEncoder(embedding_dim, encoder_dim=encoder_dim)
+    self.encoderB = StateEncoderB(embedding_dim, encoder_dim, grid_onehot_size)
     self.vocab_size = vocab_size
     self.embedding_dim = embedding_dim
     
@@ -41,28 +42,33 @@ class InstructionsDiscriminateModel(nn.Module):
 
     # self.fc = nn.Linear(encoder_dim, 48)  # Why 48?
     # self.fc2 = nn.Linear(48, 9)
-    self.fc = nn.Linear(512, 48) 
+    self.fc = nn.Linear(512 + 300, 48)
     self.fc2 = nn.Linear(48, 9)
 
 
   def forward(self, grid_embedding, grid_onehot, inventory_embedding,
               goal_embedding, instructions, lengths):
 
-    state_encod = self.encoder(grid_embedding, grid_onehot, inventory_embedding,
-                               goal_embedding)
-    #state_encod = self.fc(self.dropout(state_encod))
+
+    # state = self.encoder(grid_embedding, grid_onehot, inventory_embedding, goal_embedding) # (64, 27, 128)
+    # print("forward")
+    # print(state_encodB.size())
+    # print(state.size())
+    #state_encodB = self.fc(self.dropout(state_encodB))
 
     ###-------------------------Method1 
 
-    #print(state_encod.shape)
-    #print(state_encod.unsqueeze(1).shape)
-    embeddings = self.embed(instructions)
-    #print(embeddings.shape)
-    embeddings = torch.cat((state_encod.unsqueeze(1), embeddings), 1)
-    #print(embeddings.shape)
-    packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
-    hiddens, hdn = self.encoding(packed)
-    out = F.relu(self.fc(hdn[0]))
+    #print(state_encodB.shape)
+    #print(state_encodB.unsqueeze(1).shape)
+    embeddings = self.embed(instructions) # (64, 13, 300)
+    packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
+    _, (hidden, _) = self.encoding(packed)
+
+    state_encodB = self.encoderB(grid_embedding, grid_onehot, inventory_embedding,
+                                goal_embedding) # (64, 300)
+    combined_instruction = torch.cat((state_encodB, hidden[0]), dim=1) # (64, 812)
+
+    out = F.relu(self.fc(combined_instruction))
     #print(out.shape)
 
     ###-------------------------
@@ -73,7 +79,6 @@ class InstructionsDiscriminateModel(nn.Module):
     ###-------------------------
 
     out = self.fc2(out)
-    out = out.squeeze()
     return out
 
 
@@ -150,4 +155,4 @@ class StateEncoderB(nn.Module):
         
         state_encod = F.relu(self.fc_all(inv_goal_emb_onehot))
 
-        return state_encod   
+        return state_encod

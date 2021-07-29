@@ -1,5 +1,6 @@
 Environment:
   model_save_dir: 'trained_model/tmp_instructions_generator.pt'
+  pretrained_instructions_generator: 'trained_model/instructions_generator_072701.pt'
   data_dir: '/usr/local/google/home/billzhou/Documents/dataset_split/'
   vectors_cache: '/usr/local/google/home/billzhou/Documents/glove'
 
