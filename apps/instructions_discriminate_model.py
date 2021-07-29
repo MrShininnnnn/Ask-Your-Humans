@@ -25,11 +25,10 @@ class InstructionsDiscriminateModel(nn.Module):
 
     self.device = device
 
-    self.encoder = StateEncoder(embedding_dim, encoder_dim=encoder_dim)
-    self.encoderB = StateEncoderB(embedding_dim, encoder_dim, grid_onehot_size)
+    self.encoder = StateEncoderB(embedding_dim, encoder_dim, grid_onehot_size)
     self.vocab_size = vocab_size
     self.embedding_dim = embedding_dim
-    
+
     #<<<<<<<<<<<<<<<<<<<<<<Method1: Based on original function
     self.embed = nn.Embedding(vocab_size, embedding_dim)
     self.encoding = nn.LSTM(embedding_dim, 512, num_layers=1)
@@ -42,43 +41,39 @@ class InstructionsDiscriminateModel(nn.Module):
 
     # self.fc = nn.Linear(encoder_dim, 48)  # Why 48?
     # self.fc2 = nn.Linear(48, 9)
-    self.fc = nn.Linear(512 + 300, 48)
+    self.fc = nn.Linear(512, 48)
     self.fc2 = nn.Linear(48, 9)
 
 
   def forward(self, grid_embedding, grid_onehot, inventory_embedding,
               goal_embedding, instructions, lengths):
 
+    state_encod = self.encoder(grid_embedding, grid_onehot, inventory_embedding,
+                               goal_embedding)
+    #state_encod = self.fc(self.dropout(state_encod))
 
-    # state = self.encoder(grid_embedding, grid_onehot, inventory_embedding, goal_embedding) # (64, 27, 128)
-    # print("forward")
-    # print(state_encodB.size())
-    # print(state.size())
-    #state_encodB = self.fc(self.dropout(state_encodB))
+    ###-------------------------Method1
 
-    ###-------------------------Method1 
-
-    #print(state_encodB.shape)
-    #print(state_encodB.unsqueeze(1).shape)
-    embeddings = self.embed(instructions) # (64, 13, 300)
+    #print(state_encod.shape)
+    #print(state_encod.unsqueeze(1).shape)
+    embeddings = self.embed(instructions)
+    #print(embeddings.shape)
+    embeddings = torch.cat((state_encod.unsqueeze(1), embeddings), 1)
+    #print(embeddings.shape)
     packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
-    _, (hidden, _) = self.encoding(packed)
-
-    state_encodB = self.encoderB(grid_embedding, grid_onehot, inventory_embedding,
-                                goal_embedding) # (64, 300)
-    combined_instruction = torch.cat((state_encodB, hidden[0]), dim=1) # (64, 812)
-
-    out = F.relu(self.fc(combined_instruction))
+    hiddens, hdn = self.encoding(packed)
+    out = F.relu(self.fc(hdn[0]))
     #print(out.shape)
 
     ###-------------------------
 
-    ###-------------------------Method2 
+    ###-------------------------Method2
     #hidden = self.lstm_encoder(instructions, [500])
     #out = F.relu(self.fc(hidden))
     ###-------------------------
 
     out = self.fc2(out)
+    out = out.squeeze()
     return out
 
 
@@ -143,8 +138,8 @@ class StateEncoderB(nn.Module):
 
         emb = emb.view(-1, 25,150)
         onehot = onehot.view(-1, 25,20)
-          
-        emb_onehot = torch.cat((emb, onehot), dim = 2) # Why dim = 2 
+
+        emb_onehot = torch.cat((emb, onehot), dim = 2) # Why dim = 2
         emb_onehot =F.relu(self.fc_emb_hot(emb_onehot))
         emb_onehot = emb_onehot.view(-1, 25*90)
 
@@ -152,7 +147,7 @@ class StateEncoderB(nn.Module):
         goal_emb_onehot = self.fc_goal_emb_hot(goal_emb_onehot)
 
         inv_goal_emb_onehot = torch.cat((goal_emb_onehot, inv), dim = 1)
-        
+
         state_encod = F.relu(self.fc_all(inv_goal_emb_onehot))
 
-        return state_encod
+        return state_encod   
