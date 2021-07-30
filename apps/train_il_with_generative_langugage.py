@@ -30,13 +30,22 @@ def calculate_loss(criterion, predictions, targets, decode_lengths, alphas):
 def train(device,
           epoch,
           train_data_loader,
-          model,
+          il_model,
+          lstm_model,
           optimizer,
+          lstm_optimizer,
           criterion,
+          lstm_criterion,
           parameters,
+          lstm_parameters,
           vocab,
           log_size=500,
+          use_generative_language=True,
           summary_writer=None):
+  il_model.train()
+  lstm_model.train()
+  metrics = InstructionsGeneratorMetrics(vocab, lstm_criterion)
+
   running_loss = []
   all_losses = []
 
@@ -52,25 +61,52 @@ def train(device,
     action = action.to(device, dtype=torch.int64)
     action = action.squeeze(1)
 
-    predictions = model(grid_embedding, grid_onehot, inventory_embedding,
-                        goal_embedding, instructions, lengths)
+    if use_generative_language:
+      lstm_predictions, decode_lengths, alphas, lstm_hiddens = lstm_model(
+          grid_embedding, grid_onehot, inventory_embedding, goal_embedding,
+          instructions, lengths)
+    else:
+      lstm_hiddens = None
+
+    predictions = il_model(
+        grid_embedding,
+        grid_onehot,
+        inventory_embedding,
+        goal_embedding,
+        lstm_hiddens=lstm_hiddens)
 
     try:
-      loss = criterion(predictions, action)
+      action_loss = criterion(predictions, action)
+      clip_grad_norm_(parameters, max_norm=3)
+
+      if use_generative_language:
+        targets = instructions[:, 1:]
+        lstm_loss = metrics.add(lstm_predictions, targets, decode_lengths,
+                                alphas)
+        clip_grad_norm_(lstm_parameters, max_norm=3)
+
+        lstm_optimizer.zero_grad()
+        total_loss = action_loss + lstm_loss
+      else:
+        total_loss = action_loss
 
       optimizer.zero_grad()
-      loss.backward()
-      optimizer.step()
+      total_loss.backward()
 
-      running_loss.append(loss.item())
+      optimizer.step()
+      if use_generative_language:
+        lstm_optimizer.step()
+
+      running_loss.append(action_loss.item())
 
     except RuntimeError as error:
       print(error)
 
     if i % log_size == log_size - 1:
       all_losses.append(np.array(running_loss).mean())
+      metrics.flush(epoch, i)
 
-      print('[%d, %5d] loss: %.3f' %
+      print('[%d, %5d] train loss: %.3f' %
             (epoch + 1, i + 1, np.array(running_loss).mean()))
 
       running_loss = []
@@ -83,16 +119,20 @@ def train(device,
 def validate(device,
              epoch,
              val_loader,
-             model,
+             il_model,
+             lstm_model,
              criterion,
              vocab,
              log_size=500,
+             use_generative_language=True,
              summary_writer=None):
-  metrics = InstructionsGeneratorMetrics(vocab, criterion)
-  model.train()
+  running_loss = []
+  all_losses = []
+  il_model.eval()
+  lstm_model.eval()
 
   for idx, data in enumerate(val_loader, 0):
-    grid_onehot, grid_embedding, inventory_embedding, _, goal_embedding, instructions, lengths = data
+    grid_onehot, grid_embedding, inventory_embedding, action, goal_embedding, instructions, lengths = data
 
     grid_onehot = grid_onehot.to(device)
     grid_embedding = grid_embedding.to(device)
@@ -100,32 +140,45 @@ def validate(device,
     inventory_embedding = inventory_embedding.to(device)
 
     instructions = instructions.to(device)
+    action = action.to(device, dtype=torch.int64)
+    action = action.squeeze(1)
 
     with torch.no_grad():
-      predictions, decode_lengths, alphas, _ = model(grid_embedding,
-                                                     grid_onehot,
-                                                     inventory_embedding,
-                                                     goal_embedding,
-                                                     instructions, lengths)
-      targets = instructions[:, 1:]
+      if use_generative_language:
+        # If not using teacher, the loss is very high.
+        # _, lstm_hiddens = lstm_model.predict(grid_embedding, grid_onehot,
+        #                                      inventory_embedding,
+        #                                      goal_embedding, vocab)
+        _, _, _, lstm_hiddens = lstm_model(grid_embedding, grid_onehot,
+                                           inventory_embedding, goal_embedding,
+                                           instructions, lengths)
+      else:
+        lstm_hiddens = None
+
+      predictions = il_model(
+          grid_embedding,
+          grid_onehot,
+          inventory_embedding,
+          goal_embedding,
+          lstm_hiddens=lstm_hiddens)
       try:
-        metrics.add(predictions, targets, decode_lengths, alphas)
+        loss = criterion(predictions, action)
+        running_loss.append(loss.item())
 
       except RuntimeError as error:
         print(error)
 
     if idx % log_size == log_size - 1:
-      metrics.flush(epoch, idx, train=False)
+      all_losses.append(np.array(running_loss).mean())
+
+      print('[%d, %5d] valid loss: %.3f' %
+            (epoch + 1, idx + 1, np.array(running_loss).mean()))
+
+      running_loss = []
 
   if summary_writer is not None:
     summary_writer.add_scalar('Loss/valid',
-                              metrics.get_mean(metrics.all_losses), epoch + 1)
-    summary_writer.add_scalar('Bleu/valid',
-                              metrics.get_mean(metrics.all_bleu_scores),
-                              epoch + 1)
-    summary_writer.add_scalar('TokenAcc/valid',
-                              metrics.get_mean(metrics.all_token_accuracy),
-                              epoch + 1)
+                              np.array(all_losses).mean(), epoch + 1)
 
 
 def main():
@@ -181,23 +234,24 @@ def main():
       sampler=valid_sampler,
       collate_fn=collate_fn)
 
-  instructions_generator_model = InstructionsGeneratorModel(
-      device, len(vocab), args.embeded_dim, vocab_weights)
-  instructions_generator_model.load_state_dict(
-      torch.load(args.pretrained_instructions_generator))
-  instructions_generator_model.to(device)
+  lstm_model = InstructionsGeneratorModel(device, len(vocab), args.embeded_dim,
+                                          vocab_weights)
+  # lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
+  lstm_model.to(device)
 
-  model = ImitationLearningWithGenerativeLanguageModel(
-      instructions_generator_model, args.embeded_dim, vocab)
+  model = ImitationLearningWithGenerativeLanguageModel(args.embeded_dim)
   model.to(device)
   model.train()
 
-  criterion = nn.CrossEntropyLoss()
+  criterion = nn.CrossEntropyLoss().to(device)
+  lstm_criterion = nn.CrossEntropyLoss().to(device)
   parameters = filter(lambda p: p.requires_grad, model.parameters())
+  lstm_parameters = filter(lambda p: p.requires_grad, lstm_model.parameters())
   optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
+  lstm_optimizer = torch.optim.Adam(lstm_parameters, lr=args.learning_rate)
 
-  writer = SummaryWriter(filename_suffix='il w/ generative langugage'
-                        ) if args.summary_writer else None
+  writer = SummaryWriter(
+      log_dir='runs/il_generative_language') if args.summary_writer else None
 
   for epoch in range(args.epochs):
     train(
@@ -205,21 +259,28 @@ def main():
         epoch,
         train_data_loader,
         model,
+        lstm_model,
         optimizer,
+        lstm_optimizer,
         criterion,
+        lstm_criterion,
         parameters,
+        lstm_parameters,
         vocab,
         log_size=args.log_size,
+        use_generative_language=True,
         summary_writer=writer)
-    # validate(
-    #     device,
-    #     epoch,
-    #     validation_data_loader,
-    #     model,
-    #     criterion,
-    #     vocab,
-    #     log_size=args.log_size,
-    #     summary_writer=writer)
+    validate(
+        device,
+        epoch,
+        validation_data_loader,
+        model,
+        lstm_model,
+        criterion,
+        vocab,
+        log_size=args.log_size,
+        use_generative_language=True,
+        summary_writer=writer)
 
   torch.save(model.state_dict(), args.model_save_dir)
   print('Trained model saved at ', args.model_save_dir)
