@@ -233,7 +233,6 @@ def main():
       pin_memory=True,
       sampler=valid_sampler,
       collate_fn=collate_fn)
-
   lstm_model = InstructionsGeneratorModel(device, len(vocab), args.embeded_dim,
                                           vocab_weights)
   lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
