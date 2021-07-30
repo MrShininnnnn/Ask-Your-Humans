@@ -146,12 +146,12 @@ def validate(device,
     with torch.no_grad():
       if use_generative_language:
         # If not using teacher, the loss is very high.
-        # _, lstm_hiddens = lstm_model.predict(grid_embedding, grid_onehot,
-        #                                      inventory_embedding,
-        #                                      goal_embedding, vocab)
-        _, _, _, lstm_hiddens = lstm_model(grid_embedding, grid_onehot,
-                                           inventory_embedding, goal_embedding,
-                                           instructions, lengths)
+        _, lstm_hiddens = lstm_model.predict(grid_embedding, grid_onehot,
+                                             inventory_embedding,
+                                             goal_embedding, vocab)
+        # _, _, _, lstm_hiddens = lstm_model(grid_embedding, grid_onehot,
+        #                                    inventory_embedding, goal_embedding,
+        #                                    instructions, lengths)
       else:
         lstm_hiddens = None
 
@@ -236,7 +236,7 @@ def main():
 
   lstm_model = InstructionsGeneratorModel(device, len(vocab), args.embeded_dim,
                                           vocab_weights)
-  # lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
+  lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
   lstm_model.to(device)
 
   model = ImitationLearningWithGenerativeLanguageModel(args.embeded_dim)
@@ -251,7 +251,7 @@ def main():
   lstm_optimizer = torch.optim.Adam(lstm_parameters, lr=args.learning_rate)
 
   writer = SummaryWriter(
-      log_dir='runs/il_generative_language') if args.summary_writer else None
+      log_dir='runs/il_generative_language_pretrained') if args.summary_writer else None
 
   for epoch in range(args.epochs):
     train(
