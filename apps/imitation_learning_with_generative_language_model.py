@@ -17,8 +17,6 @@ class ImitationLearningWithGenerativeLanguageModel(nn.Module):
     super(ImitationLearningWithGenerativeLanguageModel, self).__init__()
 
     self.state_encoder = StateEncoder(embedding_dim, encoder_dim=encoder_dim)
-    # self.instructions_generator = instructions_generator_model
-    # self.vocab = vocab
 
     self.fc_state_encoder = nn.Linear(27 * 128, 48)
     self.fc_state_and_hidden = nn.Linear(48 + 32, 48)
@@ -28,12 +26,6 @@ class ImitationLearningWithGenerativeLanguageModel(nn.Module):
               goal_embedding, lstm_hiddens=None):
     state = self.state_encoder(grid_embedding, grid_onehot, inventory_embedding,
                                goal_embedding)
-    # self.instructions_generator.eval()
-    # _, hiddens = self.instructions_generator.predict(grid_embedding,
-    #                                                  grid_onehot,
-    #                                                  inventory_embedding,
-    #                                                  goal_embedding, self.vocab)
-
     state = state.view(-1, state.size(1) * state.size(2))
     state = F.relu(self.fc_state_encoder(state))
 

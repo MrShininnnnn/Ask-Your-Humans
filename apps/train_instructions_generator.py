@@ -6,6 +6,7 @@ from dataloader import load_pkl
 from instructions_generator_metrics import InstructionsGeneratorMetrics
 from instructions_generator_model import InstructionsGeneratorModel
 import numpy as np
+import random
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
@@ -60,10 +61,16 @@ def train(device,
 
     instructions = instructions.to(device)
 
-    predictions, decode_lengths, alphas, _ = model(grid_embedding, grid_onehot,
-                                                   inventory_embedding,
-                                                   goal_embedding, instructions,
-                                                   lengths)
+    use_teacher_forcing = True if random.random() < 0.5 else False
+
+    predictions, decode_lengths, alphas, _ = model(
+        grid_embedding,
+        grid_onehot,
+        inventory_embedding,
+        goal_embedding,
+        instructions,
+        lengths,
+        use_teacher_forcing=use_teacher_forcing)
 
     targets = instructions[:, 1:]
     try:
@@ -113,11 +120,14 @@ def validate(device,
     instructions = instructions.to(device)
 
     with torch.no_grad():
-      predictions, decode_lengths, alphas, _ = model(grid_embedding,
-                                                     grid_onehot,
-                                                     inventory_embedding,
-                                                     goal_embedding,
-                                                     instructions, lengths)
+      predictions, decode_lengths, alphas, _ = model(
+          grid_embedding,
+          grid_onehot,
+          inventory_embedding,
+          goal_embedding,
+          instructions,
+          lengths,
+          use_teacher_forcing=False)
       targets = instructions[:, 1:]
       try:
         metrics.add(predictions, targets, decode_lengths, alphas)
@@ -192,7 +202,7 @@ def main():
       sampler=valid_sampler,
       collate_fn=collate_fn)
 
-  model = InstructionsGeneratorModel(device, len(vocab), args.embeded_dim,
+  model = InstructionsGeneratorModel(device, vocab, args.embeded_dim,
                                      vocab_weights)
   model.to(device)
 
@@ -200,7 +210,8 @@ def main():
   parameters = filter(lambda p: p.requires_grad, model.parameters())
   optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
 
-  writer = SummaryWriter() if args.summary_writer else None
+  writer = SummaryWriter(log_dir='runs/lstm_train_0_5_forcing_valid_no_forcing'
+                        ) if args.summary_writer else None
 
   # model.load_state_dict(
   #     torch.load(args.pretrained_model_dir))

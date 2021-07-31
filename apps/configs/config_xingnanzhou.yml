@@ -1,6 +1,5 @@
 Environment:
-  model_save_dir: 'trained_model/il_generative_language_train.pt'
-  pretrained_instructions_generator: 'trained_model/instructions_generator_072701.pt'
+  model_save_dir: 'trained_model/il_only.pt'
   data_dir: '/usr/local/google/home/billzhou/Documents/dataset_split/'
   vectors_cache: '/usr/local/google/home/billzhou/Documents/glove'
 

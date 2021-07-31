@@ -7,6 +7,7 @@ from instructions_generator_metrics import InstructionsGeneratorMetrics
 from instructions_generator_model import InstructionsGeneratorModel
 from imitation_learning_with_generative_language_model import ImitationLearningWithGenerativeLanguageModel
 import numpy as np
+import random
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
@@ -62,9 +63,16 @@ def train(device,
     action = action.squeeze(1)
 
     if use_generative_language:
+      use_teacher_forcing = True if random.random() < 0.5 else False
+
       lstm_predictions, decode_lengths, alphas, lstm_hiddens = lstm_model(
-          grid_embedding, grid_onehot, inventory_embedding, goal_embedding,
-          instructions, lengths)
+          grid_embedding,
+          grid_onehot,
+          inventory_embedding,
+          goal_embedding,
+          instructions,
+          lengths,
+          use_teacher_forcing=use_teacher_forcing)
     else:
       lstm_hiddens = None
 
@@ -146,12 +154,14 @@ def validate(device,
     with torch.no_grad():
       if use_generative_language:
         # If not using teacher, the loss is very high.
-        _, lstm_hiddens = lstm_model.predict(grid_embedding, grid_onehot,
-                                             inventory_embedding,
-                                             goal_embedding, vocab)
-        # _, _, _, lstm_hiddens = lstm_model(grid_embedding, grid_onehot,
-        #                                    inventory_embedding, goal_embedding,
-        #                                    instructions, lengths)
+        _, _, _, lstm_hiddens = lstm_model(
+            grid_embedding,
+            grid_onehot,
+            inventory_embedding,
+            goal_embedding,
+            instructions,
+            lengths,
+            use_teacher_forcing=False)
       else:
         lstm_hiddens = None
 
@@ -233,9 +243,9 @@ def main():
       pin_memory=True,
       sampler=valid_sampler,
       collate_fn=collate_fn)
-  lstm_model = InstructionsGeneratorModel(device, len(vocab), args.embeded_dim,
+  lstm_model = InstructionsGeneratorModel(device, vocab, args.embeded_dim,
                                           vocab_weights)
-  lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
+  # lstm_model.load_state_dict(torch.load(args.pretrained_instructions_generator))
   lstm_model.to(device)
 
   model = ImitationLearningWithGenerativeLanguageModel(args.embeded_dim)
@@ -249,8 +259,8 @@ def main():
   optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
   lstm_optimizer = torch.optim.Adam(lstm_parameters, lr=args.learning_rate)
 
-  writer = SummaryWriter(
-      log_dir='runs/il_generative_language_pretrained') if args.summary_writer else None
+  writer = SummaryWriter(log_dir='runs/il_only'
+                        ) if args.summary_writer else None
 
   for epoch in range(args.epochs):
     train(
@@ -267,7 +277,7 @@ def main():
         lstm_parameters,
         vocab,
         log_size=args.log_size,
-        use_generative_language=True,
+        use_generative_language=False,
         summary_writer=writer)
     validate(
         device,
@@ -278,7 +288,7 @@ def main():
         criterion,
         vocab,
         log_size=args.log_size,
-        use_generative_language=True,
+        use_generative_language=False,
         summary_writer=writer)
 
   torch.save(model.state_dict(), args.model_save_dir)
