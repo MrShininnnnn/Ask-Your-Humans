@@ -32,7 +32,7 @@ class Config(object):
         if not os.path.exists(self.CP_PATH): os.makedirs(self.CP_PATH)
         self.GAME_ENV = os.path.join(self.SOURCE_PATH, 'mazebasev2')
         # '/usr/local/google/home/billzhou/Documents/glove'
-        self.glove_cache = None
+        self.glove_cache = '/usr/local/google/home/billzhou/Documents/glove'
         # data settings
         self.grid_size = 5
         self.state_size = 25 # grid_size * grid_size
@@ -57,7 +57,7 @@ class InstrConfig(Config):
         self.valid_patience = 4
         # model
         self.embedding_dim = 300
-        
+
 
 class ILConfig(Config):
     """docstring for ILConfig"""
