@@ -56,14 +56,14 @@ def train(device,
     metrics.flush(epoch, i)
     t.set_description(metrics.train_info, refresh=True)
 
-    loss = metrics.get_mean(metrics.all_losses)
-    bleu = metrics.get_mean(metrics.all_bleu_scores)
-    tk_acc = metrics.get_mean(metrics.all_token_accuracy)
+  loss = metrics.get_mean(metrics.all_losses)
+  bleu = metrics.get_mean(metrics.all_bleu_scores)
+  tk_acc = metrics.get_mean(metrics.all_token_accuracy)
 
-    if summary_writer is not None:
-      summary_writer.add_scalar('Loss/train', loss, epoch + 1)
-      summary_writer.add_scalar('Bleu/train', bleu, epoch + 1)
-      summary_writer.add_scalar('TokenAcc/train', tk_acc, epoch + 1)
+  if summary_writer is not None:
+    summary_writer.add_scalar('Loss/train', loss, epoch + 1)
+    summary_writer.add_scalar('Bleu/train', bleu, epoch + 1)
+    summary_writer.add_scalar('TokenAcc/train', tk_acc, epoch + 1)
 
   return loss, bleu, tk_acc
 
