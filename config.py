@@ -42,4 +42,3 @@ class InstrConfig(Config):
         self.valid_patience = 4
         # model
         self.embeded_dim=300
-        
