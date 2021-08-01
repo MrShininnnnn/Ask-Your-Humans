@@ -103,32 +103,49 @@ def train(device,
       lstm_optimizer.step()
 
     all_losses.append(action_loss.item())
-    train_info = (
-                  'Epoch: %d, train action loss: %.3f, train lang loss: %.3f, '
-                  'train action acc: %.3f, train bleu: %.3f, train token acc: '
-                  '%.3f') \
-        % (epoch
-            , action_loss.item()
-            , lstm_loss.item()
-            , accuracy
-            , metrics.get_mean(metrics.running_bleu_scores)
-            , metrics.get_mean(metrics.running_token_accuracy)
-            )
+
+    if use_generative_language:
+      train_info = (
+                    'Epoch: %d, train action loss: %.3f, train lang loss: '
+                    '%.3f, train action acc: %.3f, train bleu: %.3f, train '
+                    'token acc: %.3f') \
+          % (epoch
+              , action_loss.item()
+              , lstm_loss.item()
+              , accuracy
+              , metrics.get_mean(metrics.running_bleu_scores)
+              , metrics.get_mean(metrics.running_token_accuracy)
+              )
+    else:
+      train_info = (
+                    'Epoch: %d, train action loss: %.3f train action acc: %.3f') \
+          % (epoch
+              , action_loss.item()
+              , accuracy
+              )
     t.set_description(train_info, refresh=True)
     metrics.flush(epoch, i)
 
   action_loss = np.array(all_losses).mean()
-  lang_loss = metrics.get_mean(metrics.all_losses)
   accuracy = np.array(all_accuracy).mean()
-  bleu = metrics.get_mean(metrics.all_bleu_scores)
-  tk_acc = metrics.get_mean(metrics.all_token_accuracy)
+
+  if use_generative_language:
+    lang_loss = metrics.get_mean(metrics.all_losses)
+    bleu = metrics.get_mean(metrics.all_bleu_scores)
+    tk_acc = metrics.get_mean(metrics.all_token_accuracy)
+  else:
+    lang_loss = None
+    bleu = None
+    tk_acc = None
 
   if summary_writer is not None:
     summary_writer.add_scalar('ActionLoss/train', action_loss, epoch + 1)
-    summary_writer.add_scalar('LangLoss/train', lang_loss, epoch + 1)
     summary_writer.add_scalar('Accuracy/train', accuracy, epoch + 1)
-    summary_writer.add_scalar('Bleu/train', bleu, epoch + 1)
-    summary_writer.add_scalar('TokenAcc/train', tk_acc, epoch + 1)
+
+    if use_generative_language:
+      summary_writer.add_scalar('LangLoss/train', lang_loss, epoch + 1)
+      summary_writer.add_scalar('Bleu/train', bleu, epoch + 1)
+      summary_writer.add_scalar('TokenAcc/train', tk_acc, epoch + 1)
 
   return action_loss, lang_loss, accuracy, bleu, tk_acc
 
@@ -166,7 +183,6 @@ def validate(device,
 
     with torch.no_grad():
       if use_generative_language:
-        # If not using teacher, the loss is very high.
         lstm_predictions, decode_lengths, alphas, lstm_hiddens = lstm_model(
             grid_embedding,
             grid_onehot,
@@ -192,31 +208,49 @@ def validate(device,
       all_accuracy.append(accuracy.item())
       action_loss = il_criterion(predictions, action)
 
-    train_info = ('Epoch: %d, valid action loss: %.3f, valid lang loss: %.3f, '
-                'valid acc: %.3f, valid bleu: %.3f, valid token acc: %.3f') \
-        % (epoch
-            , action_loss.item()
-            , lstm_loss.item()
-            , accuracy
-            , metrics.get_mean(metrics.running_bleu_scores)
-            , metrics.get_mean(metrics.running_token_accuracy)
-            )
+    if use_generative_language:
+      train_info = (
+                    'Epoch: %d, valid action loss: %.3f, valid lang loss: '
+                    '%.3f, valid action acc: %.3f, valid bleu: %.3f, valid '
+                    'token acc: %.3f') \
+          % (epoch
+              , action_loss.item()
+              , lstm_loss.item()
+              , accuracy
+              , metrics.get_mean(metrics.running_bleu_scores)
+              , metrics.get_mean(metrics.running_token_accuracy)
+              )
+    else:
+      train_info = (
+                    'Epoch: %d, valid action loss: %.3f valid action acc: %.3f') \
+          % (epoch
+              , action_loss.item()
+              , accuracy
+              )
     t.set_description(train_info, refresh=True)
     metrics.flush(epoch, idx)
 
     all_losses.append(action_loss.item())
 
   action_loss = np.array(all_losses).mean()
-  lang_loss = metrics.get_mean(metrics.all_losses)
   accuracy = np.array(all_accuracy).mean()
-  bleu = metrics.get_mean(metrics.all_bleu_scores)
-  tk_acc = metrics.get_mean(metrics.all_token_accuracy)
+
+  if use_generative_language:
+    lang_loss = metrics.get_mean(metrics.all_losses)
+    bleu = metrics.get_mean(metrics.all_bleu_scores)
+    tk_acc = metrics.get_mean(metrics.all_token_accuracy)
+  else:
+    lang_loss = None
+    bleu = None
+    tk_acc = None
 
   if summary_writer is not None:
     summary_writer.add_scalar('ActionLoss/valid', action_loss, epoch + 1)
-    summary_writer.add_scalar('LangLoss/valid', lang_loss, epoch + 1)
     summary_writer.add_scalar('Accuracy/valid', accuracy, epoch + 1)
-    summary_writer.add_scalar('Bleu/valid', bleu, epoch + 1)
-    summary_writer.add_scalar('TokenAcc/valid', tk_acc, epoch + 1)
+
+    if use_generative_language:
+      summary_writer.add_scalar('LangLoss/valid', lang_loss, epoch + 1)
+      summary_writer.add_scalar('Bleu/valid', bleu, epoch + 1)
+      summary_writer.add_scalar('TokenAcc/valid', tk_acc, epoch + 1)
 
   return action_loss, lang_loss, accuracy, bleu, tk_acc
