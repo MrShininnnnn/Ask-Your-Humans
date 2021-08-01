@@ -133,4 +133,4 @@ dmypy.json
 runs/
 
 # Saved Models
-./res/cpts
+res/cpts
