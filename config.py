@@ -72,6 +72,8 @@ class ILConfig(Config):
         self.learning_rate = 1e-3 # 0.001 in the paper but 0.003 in the source code
         self.epochs = 30
         self.max_norm = 3
+        # valid
+        self.valid_patience = 4
         # model
         self.embedding_dim = 300
         self.grid_embedding_hidden_size = 150
