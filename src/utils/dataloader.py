@@ -200,10 +200,12 @@ class CraftingDataset(Dataset):
             return np.array([7])
         elif action == 'craft':
             return np.array([0])
-        else:
+        # stop is missing in the source code
+        elif action == 'stop':
             return np.array([8])
+        else:
             print(action)
-            print("HEREEE")
+            print('HEREEE')
 
     def one_hot_grid(self, grid):
 
@@ -286,3 +288,87 @@ def collate_fn(data):
         targets[i, :end] = cap[:end]
 
     return states_onehot, states_embedding, inventory_embedding, action, goal, targets, lengths
+
+
+def get_summed_embedding(phrase, glove, embed_size):
+
+    phrase = phrase.split(' ')
+    phrase_vector = torch.from_numpy(np.zeros((embed_size), dtype=np.float32))
+
+    for p in phrase:
+        phrase_vector += glove.vectors[glove.stoi[p.lower()]]
+
+    return phrase_vector
+
+def get_inventory_embedding(inventory, glove, embed_size):
+
+    
+    inventory_embedding = np.zeros((embed_size), dtype=np.float32)
+
+    first = True
+    for item in inventory:
+
+        if inventory[item] > 0:
+
+            if first:
+                inventory_embedding = get_summed_embedding(item, glove, embed_size)
+                first = False
+            else:
+                inventory_embedding = inventory_embedding + get_summed_embedding(item, glove, embed_size)
+
+    return inventory_embedding
+
+def get_grid_embedding(batch_grid, glove, embed_size):
+
+    goal_embedding_array = np.zeros((5, 5, embed_size), dtype=np.float32)
+
+    for x in range(5):
+        for y in range(5):
+
+            for index, item in enumerate(batch_grid[x][y]):
+                if item == "ResourceFont" or item == "CraftingContainer" or item == "CraftingItem":
+                    goal_embedding_array[x][y] = get_summed_embedding(batch_grid[x][y][index+1], glove, embed_size)
+            
+    return goal_embedding_array
+
+def get_goal_embedding(goal, glove, embed_size):
+
+    #currently all crafts are 2 word phrases
+    # goal in the format of "Make Diamond Boots (Diamond Boots=1)" --> just extract diamond boots part
+
+    goal_embedding = np.zeros((1,embed_size), dtype=np.float32)
+
+    goal = goal.split(' ')
+
+    item1_vec = glove.vectors[glove.stoi[goal[1].lower()]]
+    item2_vec = glove.vectors[glove.stoi[goal[2].lower()]]
+
+    goal_embedding[0] = item1_vec+item2_vec
+
+    return goal_embedding
+
+def one_hot_grid(grid, glove, embed_size):
+
+    grid_embedding_array = np.zeros((5, 5, 7), dtype=np.float32)
+
+    for x in range(5):
+        for y in range(5):
+
+            for index, item in enumerate(grid[x][y]):
+
+                if item == 'Corner':
+                    grid_embedding_array[x][y][0] = 1
+                elif item == 'Agent':
+                    grid_embedding_array[x][y][1] = 1
+                elif 'Door' in item:
+                    grid_embedding_array[x][y][2] = 1
+                elif item == 'Key':
+                    grid_embedding_array[x][y][3] = 1
+                elif item == 'Switch':
+                    grid_embedding_array[x][y][4] = 1
+                elif item == 'Block':
+                    grid_embedding_array[x][y][5] = 1
+                elif item == 'closed': # door closed
+                    grid_embedding_array[x][y][6] = 1
+
+    return grid_embedding_array
