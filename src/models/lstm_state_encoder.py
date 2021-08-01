@@ -12,10 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class StateEncoder(nn.Module):
+class LSTMStateEncoder(nn.Module):
 
   def __init__(self, embedding_dim, grid_onehot_size=7, encoder_dim=128):
-    super(StateEncoder, self).__init__()
+    super(LSTMStateEncoder, self).__init__()
 
     self.encoder_dim = encoder_dim
     self.embedding_dim = embedding_dim

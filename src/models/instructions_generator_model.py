@@ -12,7 +12,7 @@ __email__ = 'email'
 """
 
 from .attention_model import Attention
-from .state_encoder import StateEncoder
+from .lstm_state_encoder import LSTMStateEncoder
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
