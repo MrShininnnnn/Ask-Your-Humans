@@ -32,7 +32,7 @@ class Config(object):
         if not os.path.exists(self.CP_PATH): os.makedirs(self.CP_PATH)
         self.GAME_ENV = os.path.join(self.SOURCE_PATH, 'mazebasev2')
         # '/usr/local/google/home/billzhou/Documents/glove'
-        self.glove_cache = '/usr/local/google/home/billzhou/Documents/glove'
+        self.glove_cache = None
         # data settings
         self.grid_size = 5
         self.state_size = 25 # grid_size * grid_size
