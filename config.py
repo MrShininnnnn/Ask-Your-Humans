@@ -83,3 +83,4 @@ class ILConfig(Config):
         self.grid_goal_hidden_size = 512
         self.inventory_hidden_size = 50
         self.all_hidden_size = 48
+        self.lstm_hidden_size = 32

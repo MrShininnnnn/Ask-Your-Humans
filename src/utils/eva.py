@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchtext.data.metrics import bleu_score
-        
+
 
 class InstructionsGeneratorMetrics(object):
     """for Instruction Generator"""
@@ -50,7 +50,7 @@ class InstructionsGeneratorMetrics(object):
     def calculate_token_accuracy(self, preds, targets):
         match_count = 0
         for i in range(len(preds)):
-          match_count += self.check_token(preds, targets)
+          match_count += self.check_token(preds[i], targets[i])
         return np.float32(match_count / len(preds))
 
   # def calculate_seq_accuracy(self, preds, targets):
@@ -68,7 +68,7 @@ class InstructionsGeneratorMetrics(object):
             [[list(map(lambda x: self.vocab.idx2word[x], targets[i]))]
              for i in range(targets.shape[0])])
         return bleu_score(preds_words, targets_words)
-    
+
     def calculate_loss_(self, predictions, targets, decode_lengths, alphas):
         predictions = pack_padded_sequence(predictions, decode_lengths, batch_first=True)[0]
         targets = pack_padded_sequence(targets, decode_lengths, batch_first=True)[0]
@@ -134,15 +134,15 @@ class ActionMetrics(object):
         # step-wise
         self.running_losses, self.running_accuracy = [], []
         # epoch-wise
-        self.all_losses, self.all_accuracy = [], [] 
+        self.all_losses, self.all_accuracy = [], []
 
     def get_mean(self, metric):
         return np.array(metric).mean()
-    
+
     def calculate_loss_(self, predictions, targets):
         return self.criterion(predictions, targets)
-    
-    def calculate_accuracy_(self, preds, target): 
+
+    def calculate_accuracy_(self, preds, target):
         batch_size = target.shape[0]
         _, pred = torch.max(preds, dim=-1)
         correct = pred.eq(target).sum() * 1.0
