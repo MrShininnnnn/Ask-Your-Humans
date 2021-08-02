@@ -72,7 +72,7 @@ class ILConfig(Config):
         self.num_workers = 0 if self.device == 'cuda' else 0
         self.batch_size = 64
         self.learning_rate = 1e-3 # 0.001 in the paper but 0.003 in the source code
-        self.epochs = 5
+        self.epochs = 30
         self.max_norm = 3
         # valid
         self.valid_patience = 4
