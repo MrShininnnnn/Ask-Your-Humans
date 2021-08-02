@@ -15,10 +15,10 @@ class Config(object):
     def __init__(self):
         super().__init__()
         self.dev = False
-        self.random_seed = 123
+        self.random_seed = 321
         self.summary_writer = True
         # see mazebasev2/options/knowledge_planner/
-        self.game_file_name = 'length12task_distractor.yaml'
+        self.game_file_name = 'length1task.yaml'
         # verify devices which can be either cpu or gpu
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         # I/O directory
@@ -32,7 +32,7 @@ class Config(object):
         if not os.path.exists(self.CP_PATH): os.makedirs(self.CP_PATH)
         self.GAME_ENV = os.path.join(self.SOURCE_PATH, 'mazebasev2')
         # '/usr/local/google/home/billzhou/Documents/glove'
-        self.glove_cache = '/usr/local/google/home/billzhou/Documents/glove'
+        self.glove_cache = None
         # data settings
         self.grid_size = 5
         self.state_size = 25 # grid_size * grid_size
@@ -53,6 +53,7 @@ class InstrConfig(Config):
         self.learning_rate = 1e-3
         self.epochs = 20
         self.max_norm = 3
+        self.teacher_forcing_rate = 1.0
         # valid
         self.valid_patience = 4
         # model
@@ -65,12 +66,13 @@ class ILConfig(Config):
         super().__init__()
         # I/O directory
         self.SAVE_PATH = os.path.join(self.CP_PATH, 'IL.pt')
+        self.LSTM_SAVE_PATH = os.path.join(self.CP_PATH, 'LSTM.pt')
         # train
         self.validation_split = 0.2
         self.num_workers = 0 if self.device == 'cuda' else 0
         self.batch_size = 64
         self.learning_rate = 1e-3 # 0.001 in the paper but 0.003 in the source code
-        self.epochs = 30
+        self.epochs = 5
         self.max_norm = 3
         # valid
         self.valid_patience = 4

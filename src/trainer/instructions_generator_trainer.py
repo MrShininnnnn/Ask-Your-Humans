@@ -21,6 +21,7 @@ def train(device,
           criterion,
           parameters,
           vocab,
+          config,
           summary_writer=None):
   metrics = InstructionsGeneratorMetrics(vocab, criterion)
   model.train()
@@ -34,7 +35,8 @@ def train(device,
     inventory_embedding = inventory_embedding.to(device)
     instructions = instructions.to(device)
 
-    use_teacher_forcing = True if random.random() < 0.5 else False
+    use_teacher_forcing = True if random.random(
+    ) < config.teacher_forcing_rate else False
 
     predictions, alphas, _ = model(
         grid_embedding,
