@@ -90,14 +90,14 @@ def validate(epoch, data_loader, model, criterion, config, summary_writer=None):
 
     return loss, accuracy
 
-def validate_game(epoch, model, config, summary_writer=None):
+def validate_game(epoch, model, config, summary_writer=None, cache=None):
     # enable evaluation mode
     model.eval()
-    glove = vocabtorch.GloVe(name='840B', dim=300)
+    glove = vocabtorch.GloVe(name='840B', dim=300, cache=cache)
     results = []
     for i in trange(15):
         with torch.no_grad():
-            res = imitation_learning_gamer.play(model, glove, config) 
+            res = imitation_learning_gamer.play(model, glove, config)
             results.append(res)
 
     reward = sum(results)
