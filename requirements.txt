@@ -1,0 +1,9 @@
+torchtext==0.8.1
+torch==1.7.1
+numpy==1.20.3
+tqdm==4.61.2
+click==7.1.2
+six==1.16.0
+baselines==0.1.5
+gym==0.18.3
+PyYAML==5.4.1
