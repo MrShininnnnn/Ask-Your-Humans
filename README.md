@@ -20,6 +20,7 @@ This repository is for the CS 7643 final project. We aim to reproduce the result
 Ask-Your-Humans
 ├── README.md
 ├── config.py
+├── requirements.txt
 ├── main.ipynb
 ├── res
 │   ├── cpts
@@ -45,9 +46,14 @@ conda create -n cs7643 python=3.8.5 pip
 conda activate cs7643
 git clone https://github.com/MrShininnnnn/Ask-Your-Humans.git
 cd Ask-Your-Humans
-pip install jupyterlab
+pip install -r requirements.txt
+# pip install numpy torch torchtext tensorboard matplotlib PyYAML jupyterlab
 jupyter lab
 ```
+
+## Note
++ It takes time to download Glove vector cache for the first run
++ Enable number of workers > 0 may cause allocate memory issue
 
 ## Authors
 * **Ning Shi** - nshi30@gatech.edu
