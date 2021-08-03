@@ -140,6 +140,8 @@ def validate(epoch,
     grid_onehot, grid_embedding, inventory_embedding, action, goal_embedding, instructions = data
     action = action.squeeze(1).type(torch.int64)
 
+    decode_lengths = [lengths - 1 for lengths in lengths]
+
     with torch.no_grad():
       # forward
       lstm_predictions, alphas, lstm_hiddens = lstm_model(
@@ -147,13 +149,13 @@ def validate(epoch,
           grid_onehot,
           inventory_embedding,
           goal_embedding,
+          min_decode_length=max(decode_lengths),
           use_teacher_forcing=False)
       predictions = il_model(grid_embedding, grid_onehot, inventory_embedding,
                              goal_embedding, lstm_hiddens)
 
     # evaluation
     targets = instructions[:, 1:]
-    decode_lengths = [lengths - 1 for lengths in lengths]
     lstm_loss = lstm_metrics.add(lstm_predictions, targets, decode_lengths,
                                  alphas)
     action_loss = action_metrics.add(predictions, action)

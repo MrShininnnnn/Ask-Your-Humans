@@ -90,15 +90,17 @@ def validate(device,
     inventory_embedding = inventory_embedding.to(device)
     instructions = instructions.to(device)
 
+    decode_lengths = [lengths - 1 for lengths in lengths]
+
     with torch.no_grad():
       predictions, alphas, _ = model(
           grid_embedding,
           grid_onehot,
           inventory_embedding,
           goal_embedding,
+          min_decode_length=max(decode_lengths),
           use_teacher_forcing=False)
 
-    decode_lengths = [lengths - 1 for lengths in lengths]
     targets = instructions[:, 1:]
     metrics.add(predictions, targets, decode_lengths, alphas)
 

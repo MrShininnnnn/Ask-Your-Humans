@@ -53,7 +53,7 @@ class InstrConfig(Config):
         self.learning_rate = 1e-3
         self.epochs = 20
         self.max_norm = 3
-        self.teacher_forcing_rate = 1.0
+        self.teacher_forcing_rate = 0.5
         # valid
         self.valid_patience = 4
         # model
