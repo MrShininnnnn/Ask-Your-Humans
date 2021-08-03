@@ -63,6 +63,7 @@ class InstructionsGeneratorModel(nn.Module):
               grid_onehot,
               inventory_embedding,
               goal_embedding,
+              min_decode_length=5,
               instructions=None,
               instructions_lengths=None,
               use_teacher_forcing=False):
@@ -118,40 +119,62 @@ class InstructionsGeneratorModel(nn.Module):
       alphas = torch.zeros(batch_size, max(decode_lengths),
                            encoder_out.size(1)).to(self.device)
 
-      next_word = torch.LongTensor([[self.vocab.word2idx['<start>']]] *
-                                   batch_size).to(self.device)  # (64, 1)
-      for t in range(max(decode_lengths)):
-        batch_size_t = sum([l > t for l in decode_lengths])
-        next_word = next_word[:batch_size_t, 0]
-        embedded = self.embedding(next_word)  # (64, 1, 300)
-
-        attention_weighted_encoding, alpha = self.attention(
-            encoder_out[:batch_size_t], hidden_state[:batch_size_t])
-
-        gate = self.sigmoid(self.fc_beta(hidden_state[:batch_size_t]))
-        attention_weighted_encoding = gate * attention_weighted_encoding
-
-        decode_input = torch.cat([embedded, attention_weighted_encoding], dim=1)
-        hidden_state, cell_state = self.decode_step(
-            decode_input,
-            (hidden_state[:batch_size_t], cell_state[:batch_size_t]))
-        hiddens[:batch_size_t] = hidden_state.clone()
-        preds = self.fc(self.dropout(hidden_state))
-        predictions[:batch_size_t, t, :] = preds
-        alphas[:batch_size_t, t, :] = alpha
-        _, next_word = preds.topk(1)
-    else:
-      # During validation and game play, target length is unknown
-      max_decode_length = max(
-          instructions_lengths) - 1 if instructions_lengths is not None else 20
-
       k_prev_words = torch.LongTensor([[self.vocab.word2idx['<start>']]] *
                                       batch_size).to(self.device)
+      complete_seqs = [
+          [self.vocab.word2idx['<start>']] for i in range(batch_size)
+      ]
+      incomplete_inds = [i for i in range(batch_size)
+                        ]  # TODO(xingnanzhou): use np.linespace
+
+      for t in range(max(decode_lengths)):
+        embeddings = self.embedding(k_prev_words).squeeze(1)
+        attention_weighted_encoding, alpha = self.attention(
+            encoder_out, hidden_state)
+        gate = self.sigmoid(self.fc_beta(hidden_state))
+        attention_weighted_encoding = gate * attention_weighted_encoding
+
+        decode_input = torch.cat([embeddings, attention_weighted_encoding],
+                                 dim=1)
+        hidden_state, cell_state = self.decode_step(decode_input,
+                                                    (hidden_state, cell_state))
+        hiddens[incomplete_inds] = hidden_state.clone()
+        preds = self.fc(self.dropout(hidden_state))
+        predictions[incomplete_inds, t, :] = preds
+        alphas[incomplete_inds, t, :] = alpha
+
+        preds = F.log_softmax(preds, dim=1)
+        _, indices = preds.max(dim=1)
+
+        unfinished_indices = []
+        for i in range(indices.size(0) - 1, -1, -1):
+          complete_seqs[incomplete_inds[i]].append(indices.data.tolist()[i])
+
+          if indices[i] == self.vocab.word2idx['<end>'] or t == decode_lengths[
+              i]:
+            del incomplete_inds[i]
+          else:
+            unfinished_indices.append(i)
+
+        # All sequences reach <end>
+        if len(incomplete_inds) == 0:
+          break
+
+        hidden_state = hidden_state[unfinished_indices]
+        cell_state = cell_state[unfinished_indices]
+        encoder_out = encoder_out[unfinished_indices]
+        k_prev_words = indices[unfinished_indices].unsqueeze(1)
+    else:
+      # During validation and game play, target length is unknown
+      max_decode_length = 20
 
       predictions = torch.zeros(batch_size, max_decode_length,
                                 self.vocab_size).to(self.device)
       alphas = torch.zeros(batch_size, max_decode_length,
                            encoder_out.size(1)).to(self.device)
+
+      k_prev_words = torch.LongTensor([[self.vocab.word2idx['<start>']]] *
+                                      batch_size).to(self.device)
       complete_seqs = [
           [self.vocab.word2idx['<start>']] for i in range(batch_size)
       ]
@@ -194,5 +217,9 @@ class InstructionsGeneratorModel(nn.Module):
         cell_state = cell_state[unfinished_indices]
         encoder_out = encoder_out[unfinished_indices]
         k_prev_words = indices[unfinished_indices].unsqueeze(1)
+
+      max_decode_length = max(t + 1, min_decode_length)
+      predictions = predictions[:, :max_decode_length]
+      alphas = alphas[:, :max_decode_length, :]
 
     return predictions, alphas, hiddens
