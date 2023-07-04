@@ -1,5 +1,5 @@
 numpy==1.22.0
-torch==1.7.1
+torch==1.13.1
 torchtext==0.8.1
 tensorboard==2.5.0
 matplotlib==3.4.2
